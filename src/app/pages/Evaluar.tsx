@@ -84,8 +84,8 @@ export function Evaluar() {
         setRiskPoints(evaluacionesData);
         setCatalogo(catalogoData);
       })
-      .catch((error) => {
-        console.warn("No se pudo cargar informacion inicial del API.", error);
+      .catch(() => {
+        setErrorMessage("No se pudo cargar informacion inicial del API.");
       });
 
     return () => {
@@ -115,8 +115,8 @@ export function Evaluar() {
             : "",
         }));
       })
-      .catch((error) => {
-        console.warn("No se pudieron cargar ciudades.", error);
+      .catch(() => {
+        setErrorMessage("No se pudieron cargar ciudades.");
       });
 
     return () => {
@@ -192,25 +192,6 @@ export function Evaluar() {
         const longitude = position.coords.longitude;
         const match = findNearestCatalogCity(latitude, longitude, catalogo);
 
-        console.group("EcoRiesgo debug ubicacion");
-        console.log("Coordenadas del navegador:", {
-          latitud: latitude,
-          longitud: longitude,
-          precisionMetros: position.coords.accuracy,
-        });
-        console.log("Catalogo cargado para comparar:", {
-          total: catalogo.length,
-          primerItemCrudo: catalogo[0],
-          ciudadesNormalizadas: normalizeCatalogCities(catalogo).slice(0, 5),
-        });
-        console.log("Ciudad mas cercana encontrada:", match);
-        console.log("Radio maximo permitido km:", CITY_MATCH_RADIUS_KM);
-        console.log("Decision:", {
-          aceptada: Boolean(match && match.distanceKm <= CITY_MATCH_RADIUS_KM),
-          distanciaKm: match?.distanceKm,
-        });
-        console.groupEnd();
-
         if (!match || match.distanceKm > CITY_MATCH_RADIUS_KM) {
           setErrorMessage(
             "Tu ubicacion actual no coincide con una ciudad registrada. Selecciona provincia y ciudad manualmente."
@@ -227,8 +208,7 @@ export function Evaluar() {
         }));
         setLocationLocked(true);
       },
-      (error) => {
-        console.error("Error getting location:", error);
+      () => {
         setErrorMessage("No se pudo obtener la ubicacion. Selecciona provincia y ciudad manualmente.");
       }
     );
