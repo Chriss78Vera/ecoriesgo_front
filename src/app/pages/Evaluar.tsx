@@ -257,7 +257,7 @@ export function Evaluar() {
         >
           <h1 className="mb-3">Evaluar Zona Ambiental</h1>
           <p className="text-muted-foreground text-lg">
-            Completa el formulario y el backend calculara el riesgo ambiental.
+            Completa el formulario para calculara el riesgo ambiental.
           </p>
         </motion.div>
 
