@@ -10,6 +10,8 @@ import {
   Mountain,
   Navigation as NavigationIcon,
   Calculator,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Label } from "@radix-ui/react-label";
@@ -26,6 +28,20 @@ import {
   type Vegetacion,
 } from "../services/evaluacion";
 import { RiskMap, type RiskMapPoint } from "../components/RiskMap";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import { cn } from "../components/ui/utils";
 
 const CITY_MATCH_RADIUS_KM = 35;
 
@@ -136,6 +152,11 @@ export function Evaluar() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.provinciaId || !formData.ciudadId) {
+      setErrorMessage("Selecciona una provincia y una ciudad antes de guardar.");
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage("");
 
@@ -250,58 +271,47 @@ export function Evaluar() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block mb-2">Provincia</label>
-                  <select
-                    required
-                    value={formData.provinciaId}
-                    disabled={locationLocked}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        provinciaId: e.target.value,
-                        latitud: "",
-                        longitud: "",
-                      })
-                    }
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-eco-green disabled:opacity-60"
-                  >
-                    <option value="">Selecciona una provincia</option>
-                    {provincias.map((provincia) => (
-                      <option key={provincia.id} value={provincia.id}>
-                        {provincia.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block mb-2">Ciudad</label>
-                  <select
-                    required
-                    value={formData.ciudadId}
-                    disabled={!formData.provinciaId || locationLocked}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        ciudadId: e.target.value,
-                        latitud:
-                          ciudades.find((ciudad) => String(ciudad.id) === e.target.value)
-                            ?.latitud ?? "",
-                        longitud:
-                          ciudades.find((ciudad) => String(ciudad.id) === e.target.value)
-                            ?.longitud ?? "",
-                      })
-                    }
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-eco-green disabled:opacity-60"
-                  >
-                    <option value="">Selecciona una ciudad</option>
-                    {ciudades.map((ciudad) => (
-                      <option key={ciudad.id} value={ciudad.id}>
-                        {ciudad.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SmartSelectField
+                  label="Provincia"
+                  value={formData.provinciaId}
+                  disabled={locationLocked}
+                  placeholder="Selecciona una provincia"
+                  emptyMessage="No se encontraron provincias."
+                  onChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      provinciaId: value,
+                      ciudadId: "",
+                      latitud: "",
+                      longitud: "",
+                    })
+                  }
+                  options={provincias.map((provincia) => ({
+                    value: String(provincia.id),
+                    label: provincia.nombre,
+                  }))}
+                />
+                <SmartSelectField
+                  label="Ciudad"
+                  value={formData.ciudadId}
+                  disabled={!formData.provinciaId || locationLocked}
+                  placeholder="Selecciona una ciudad"
+                  emptyMessage="No se encontraron ciudades."
+                  onChange={(value) => {
+                    const selected = ciudades.find((ciudad) => String(ciudad.id) === value);
+
+                    setFormData({
+                      ...formData,
+                      ciudadId: value,
+                      latitud: selected?.latitud ?? "",
+                      longitud: selected?.longitud ?? "",
+                    });
+                  }}
+                  options={ciudades.map((ciudad) => ({
+                    value: String(ciudad.id),
+                    label: ciudad.nombre,
+                  }))}
+                />
               </div>
 
               <div>
@@ -374,23 +384,21 @@ export function Evaluar() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
-                <label className="block mb-2">Nivel de vegetacion</label>
-                <select
-                  value={formData.vegetacion}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      vegetacion: e.target.value as Vegetacion,
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-eco-green"
-                >
-                  <option value="alta">Alta - Abundante cobertura vegetal</option>
-                  <option value="media">Media - Cobertura moderada</option>
-                  <option value="baja">Baja - Poca o ninguna vegetacion</option>
-                </select>
-              </div>
+              <SmartSelectField
+                label="Nivel de vegetacion"
+                value={formData.vegetacion}
+                onChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    vegetacion: value as Vegetacion,
+                  })
+                }
+                options={[
+                  { value: "alta", label: "Alta - Abundante cobertura vegetal" },
+                  { value: "media", label: "Media - Cobertura moderada" },
+                  { value: "baja", label: "Baja - Poca o ninguna vegetacion" },
+                ]}
+              />
 
               <div className="grid md:grid-cols-3 gap-4">
                 <SwitchField
@@ -570,19 +578,87 @@ function SelectField({
   options: Array<[string, string]>;
 }) {
   return (
+    <SmartSelectField
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options.map(([optionValue, optionLabel]) => ({
+        value: optionValue,
+        label: optionLabel,
+      }))}
+    />
+  );
+}
+
+function SmartSelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = "Selecciona una opcion",
+  emptyMessage = "No se encontraron opciones.",
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+  emptyMessage?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
     <div>
       <label className="block mb-2">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-eco-green"
-      >
-        {options.map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>
-            {optionLabel}
-          </option>
-        ))}
-      </select>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border-2 border-eco-green bg-input-background px-4 py-3 text-left font-normal text-eco-green transition-colors hover:bg-eco-green/10 focus:outline-none focus:ring-2 focus:ring-eco-green disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className={cn("min-w-0 truncate", !selectedOption && "text-muted-foreground")}>
+              {selectedOption?.label ?? placeholder}
+            </span>
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+          <Command>
+            <CommandInput placeholder={`Buscar ${label.toLowerCase()}...`} />
+            <CommandList className="max-h-56">
+              <CommandEmpty>{emptyMessage}</CommandEmpty>
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label}
+                    keywords={[option.value]}
+                    onSelect={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className="min-h-9"
+                  >
+                    <Check
+                      className={cn(
+                        "size-4",
+                        value === option.value ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span className="truncate">{option.label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
