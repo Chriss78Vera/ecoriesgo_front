@@ -24,14 +24,18 @@ import {
   Filter,
   LocateFixed,
   Lightbulb,
+  RotateCcw,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { RiskMap, type RiskMapPoint } from "../components/RiskMap";
 import {
   evaluacionService,
+  ubicacionService,
+  type Ciudad,
   type DashboardResumen,
   type EvaluacionResponse,
   type EvaluacionListItem,
+  type Provincia,
 } from "../services/evaluacion";
 
 const EMPTY_DASHBOARD: DashboardResumen = {
@@ -52,7 +56,10 @@ export function Dashboard() {
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluacionResponse | null>(null);
   const [selectedLoadingId, setSelectedLoadingId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
+  const [provincias, setProvincias] = useState<Provincia[]>([]);
+  const [ciudades, setCiudades] = useState<Ciudad[]>([]);
+  const [selectedProvinciaId, setSelectedProvinciaId] = useState("");
+  const [selectedCiudadId, setSelectedCiudadId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [pagination, setPagination] = useState({
@@ -62,13 +69,17 @@ export function Dashboard() {
 
   useEffect(() => {
     const filters = {
-      pais: selectedCountry || undefined,
+      provinciaId: selectedProvinciaId || undefined,
+      ciudadId: selectedCiudadId || undefined,
       page: currentPage,
       limit: pageSize,
     };
 
     Promise.all([
-      evaluacionService.dashboard({ pais: filters.pais }),
+      evaluacionService.dashboard({
+        provinciaId: filters.provinciaId,
+        ciudadId: filters.ciudadId,
+      }),
       evaluacionService.history(filters),
     ])
       .then(([dashboardData, historyData]) => {
@@ -86,7 +97,32 @@ export function Dashboard() {
             : "No se pudo cargar el dashboard.";
         setErrorMessage(message);
       });
-  }, [selectedCountry, currentPage, pageSize]);
+  }, [selectedProvinciaId, selectedCiudadId, currentPage, pageSize]);
+
+  useEffect(() => {
+    ubicacionService
+      .provincias()
+      .then(setProvincias)
+      .catch(() => setErrorMessage("No se pudieron cargar las provincias."));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProvinciaId) {
+      setCiudades([]);
+      setSelectedCiudadId("");
+      return;
+    }
+
+    ubicacionService
+      .ciudades(Number(selectedProvinciaId))
+      .then((data) => {
+        setCiudades(data);
+        setSelectedCiudadId((current) =>
+          data.some((city) => String(city.id) === current) ? current : ""
+        );
+      })
+      .catch(() => setErrorMessage("No se pudieron cargar las ciudades."));
+  }, [selectedProvinciaId]);
 
   const latestEvaluation = useMemo(
     () =>
@@ -115,8 +151,6 @@ export function Dashboard() {
         },
       ]
     : [];
-
-  const countries = useMemo(() => ["Ecuador"], []);
 
   const kpiCards = [
     {
@@ -212,52 +246,6 @@ export function Dashboard() {
             );
           })}
         </div>
-
-        <Card className="mb-8">
-          <CardContent className="flex flex-col gap-4 pt-6 md:flex-row md:items-end md:justify-between">
-            <div className="grid gap-2 md:w-80">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <Filter className="size-4 text-eco-green" />
-                Filtrar por pais
-              </label>
-              <select
-                value={selectedCountry}
-                onChange={(event) => {
-                  setSelectedCountry(event.target.value);
-                  setCurrentPage(1);
-                  setSelectedMapPoint(null);
-                  setSelectedEvaluation(null);
-                }}
-                className="h-11 rounded-lg border border-border bg-input-background px-3 focus:outline-none focus:ring-2 focus:ring-eco-green"
-              >
-                <option value="">Todos los paises</option>
-                {countries.map((country) => (
-                  <option key={country} value={country}>
-                    {country}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid gap-2 md:w-48">
-              <label className="text-sm font-medium">Datos por pagina</label>
-              <select
-                value={pageSize}
-                onChange={(event) => {
-                  setPageSize(Number(event.target.value));
-                  setCurrentPage(1);
-                }}
-                className="h-11 rounded-lg border border-border bg-input-background px-3 focus:outline-none focus:ring-2 focus:ring-eco-green"
-              >
-                {[5, 10, 20, 50].map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </CardContent>
-        </Card>
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <Card>
@@ -376,13 +364,86 @@ export function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="size-5 text-eco-green" />
-              Historial de Evaluaciones
-            </CardTitle>
+          <CardHeader className="gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="size-5 text-eco-green" />
+                Historial de Evaluaciones
+              </CardTitle>
+              <div className="rounded-full border border-eco-green/30 bg-eco-green-light px-4 py-2 text-sm font-medium text-eco-green">
+                {pagination.total} registros
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Filter className="size-4 text-eco-green" />
+                Filtros del historial
+              </div>
+              <div className="grid gap-4 md:grid-cols-[1fr_1fr_160px_auto] md:items-end">
+                <FilterSelect
+                  label="Provincia"
+                  value={selectedProvinciaId}
+                  onChange={(value) => {
+                    setSelectedProvinciaId(value);
+                    setSelectedCiudadId("");
+                    setCurrentPage(1);
+                    setSelectedMapPoint(null);
+                    setSelectedEvaluation(null);
+                  }}
+                  options={provincias.map((provincia) => ({
+                    value: String(provincia.id),
+                    label: provincia.nombre,
+                  }))}
+                  placeholder="Todas las provincias"
+                />
+                <FilterSelect
+                  label="Ciudad"
+                  value={selectedCiudadId}
+                  onChange={(value) => {
+                    setSelectedCiudadId(value);
+                    setCurrentPage(1);
+                    setSelectedMapPoint(null);
+                    setSelectedEvaluation(null);
+                  }}
+                  options={ciudades.map((ciudad) => ({
+                    value: String(ciudad.id),
+                    label: ciudad.nombre,
+                  }))}
+                  placeholder="Todas las ciudades"
+                  disabled={!selectedProvinciaId}
+                />
+                <FilterSelect
+                  label="Por pagina"
+                  value={String(pageSize)}
+                  onChange={(value) => {
+                    setPageSize(Number(value));
+                    setCurrentPage(1);
+                  }}
+                  options={[5, 10, 20, 50].map((size) => ({
+                    value: String(size),
+                    label: `${size} datos`,
+                  }))}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedProvinciaId("");
+                    setSelectedCiudadId("");
+                    setCurrentPage(1);
+                    setSelectedMapPoint(null);
+                    setSelectedEvaluation(null);
+                  }}
+                  className="h-11 border-eco-green/40 text-eco-green hover:bg-eco-green-light"
+                >
+                  <RotateCcw className="size-4" />
+                  Limpiar
+                </Button>
+              </div>
+            </div>
+
             {evaluations.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 No hay evaluaciones registradas. Comienza evaluando una zona.
@@ -435,8 +496,8 @@ export function Dashboard() {
             )}
 
             {pagination.total > 0 && (
-              <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-muted-foreground">
+              <div className="mt-6 flex flex-col gap-4 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-muted-foreground">
                   Mostrando pagina {currentPage} de {pagination.totalPages} ({pagination.total} registros)
                 </p>
                 <div className="flex gap-2">
@@ -445,6 +506,7 @@ export function Dashboard() {
                     variant="outline"
                     disabled={currentPage <= 1}
                     onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                    className="min-w-28 border-eco-green/40 text-eco-green hover:bg-eco-green-light disabled:opacity-50"
                   >
                     Anterior
                   </Button>
@@ -455,6 +517,7 @@ export function Dashboard() {
                     onClick={() =>
                       setCurrentPage((page) => Math.min(page + 1, pagination.totalPages))
                     }
+                    className="min-w-28 border-eco-green/40 text-eco-green hover:bg-eco-green-light disabled:opacity-50"
                   >
                     Siguiente
                   </Button>
@@ -474,6 +537,41 @@ function LegendItem({ label, color }: { label: string; color: string }) {
       <div className="size-4 rounded-full" style={{ backgroundColor: color }} />
       <span className="text-sm">{label}</span>
     </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium">
+      {label}
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 rounded-lg border border-border bg-white px-3 text-sm text-foreground shadow-sm outline-none transition focus:border-eco-green focus:ring-2 focus:ring-eco-green/20 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+      >
+        {placeholder && <option value="">{placeholder}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

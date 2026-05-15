@@ -70,7 +70,6 @@ export interface EvaluacionListItem {
   puntaje: number;
   nivel_riesgo: RiskLevel;
   color_riesgo: string;
-  pais?: string;
   provincia_nombre: string;
   ciudad_nombre: string;
   fecha_registro: string;
@@ -79,7 +78,8 @@ export interface EvaluacionListItem {
 }
 
 export interface EvaluacionHistoryParams {
-  pais?: string;
+  provinciaId?: string | number;
+  ciudadId?: string | number;
   page?: number;
   limit?: number;
 }
@@ -135,7 +135,7 @@ export const evaluacionService = {
     ),
   getById: (id: string | number) =>
     http.get<EvaluacionResponse>(`/evaluaciones/${id}`),
-  dashboard: (params: Pick<EvaluacionHistoryParams, "pais"> = {}) =>
+  dashboard: (params: Pick<EvaluacionHistoryParams, "provinciaId" | "ciudadId"> = {}) =>
     http.get<DashboardResumen>(
       `/evaluaciones/resumen/dashboard?${new URLSearchParams(
         Object.entries(params)
