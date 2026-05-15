@@ -70,11 +70,26 @@ export interface EvaluacionListItem {
   puntaje: number;
   nivel_riesgo: RiskLevel;
   color_riesgo: string;
+  pais?: string;
   provincia_nombre: string;
   ciudad_nombre: string;
   fecha_registro: string;
   latitud?: string | number;
   longitud?: string | number;
+}
+
+export interface EvaluacionHistoryParams {
+  pais?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface EvaluacionHistoryResponse {
+  items: EvaluacionListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface DashboardResumen {
@@ -110,10 +125,24 @@ export const evaluacionService = {
   create: (payload: EvaluacionPayload) =>
     http.post<EvaluacionResponse>("/evaluaciones", payload),
   list: () => http.get<EvaluacionListItem[]>("/evaluaciones"),
+  history: (params: EvaluacionHistoryParams = {}) =>
+    http.get<EvaluacionHistoryResponse>(
+      `/evaluaciones?${new URLSearchParams(
+        Object.entries(params)
+          .filter(([, value]) => value !== undefined && value !== "")
+          .map(([key, value]) => [key, String(value)])
+      ).toString()}`
+    ),
   getById: (id: string | number) =>
     http.get<EvaluacionResponse>(`/evaluaciones/${id}`),
-  dashboard: () =>
-    http.get<DashboardResumen>("/evaluaciones/resumen/dashboard"),
+  dashboard: (params: Pick<EvaluacionHistoryParams, "pais"> = {}) =>
+    http.get<DashboardResumen>(
+      `/evaluaciones/resumen/dashboard?${new URLSearchParams(
+        Object.entries(params)
+          .filter(([, value]) => value !== undefined && value !== "")
+          .map(([key, value]) => [key, String(value)])
+      ).toString()}`
+    ),
   remove: (id: string | number) =>
     http.delete<void>(`/evaluaciones/${id}`),
 };

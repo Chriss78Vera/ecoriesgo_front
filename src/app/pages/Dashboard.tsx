@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   TrendingUp,
   Calendar,
+  Filter,
   LocateFixed,
   Lightbulb,
 } from "lucide-react";
@@ -51,12 +52,32 @@ export function Dashboard() {
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluacionResponse | null>(null);
   const [selectedLoadingId, setSelectedLoadingId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 1,
+  });
 
   useEffect(() => {
-    Promise.all([evaluacionService.dashboard(), evaluacionService.list()])
-      .then(([dashboardData, evaluationsData]) => {
+    const filters = {
+      pais: selectedCountry || undefined,
+      page: currentPage,
+      limit: pageSize,
+    };
+
+    Promise.all([
+      evaluacionService.dashboard({ pais: filters.pais }),
+      evaluacionService.history(filters),
+    ])
+      .then(([dashboardData, historyData]) => {
         setSummary(dashboardData);
-        setEvaluations(evaluationsData);
+        setEvaluations(historyData.items);
+        setPagination({
+          total: historyData.total,
+          totalPages: Math.max(historyData.totalPages, 1),
+        });
       })
       .catch((error) => {
         const message =
@@ -65,7 +86,7 @@ export function Dashboard() {
             : "No se pudo cargar el dashboard.";
         setErrorMessage(message);
       });
-  }, []);
+  }, [selectedCountry, currentPage, pageSize]);
 
   const latestEvaluation = useMemo(
     () =>
@@ -95,10 +116,7 @@ export function Dashboard() {
       ]
     : [];
 
-  const recentEvaluations =
-    summary.evaluaciones_recientes.length > 0
-      ? summary.evaluaciones_recientes
-      : evaluations.slice(0, 10);
+  const countries = useMemo(() => ["Ecuador"], []);
 
   const kpiCards = [
     {
@@ -194,6 +212,52 @@ export function Dashboard() {
             );
           })}
         </div>
+
+        <Card className="mb-8">
+          <CardContent className="flex flex-col gap-4 pt-6 md:flex-row md:items-end md:justify-between">
+            <div className="grid gap-2 md:w-80">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Filter className="size-4 text-eco-green" />
+                Filtrar por pais
+              </label>
+              <select
+                value={selectedCountry}
+                onChange={(event) => {
+                  setSelectedCountry(event.target.value);
+                  setCurrentPage(1);
+                  setSelectedMapPoint(null);
+                  setSelectedEvaluation(null);
+                }}
+                className="h-11 rounded-lg border border-border bg-input-background px-3 focus:outline-none focus:ring-2 focus:ring-eco-green"
+              >
+                <option value="">Todos los paises</option>
+                {countries.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-2 md:w-48">
+              <label className="text-sm font-medium">Datos por pagina</label>
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-11 rounded-lg border border-border bg-input-background px-3 focus:outline-none focus:ring-2 focus:ring-eco-green"
+              >
+                {[5, 10, 20, 50].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <Card>
@@ -315,11 +379,11 @@ export function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="size-5 text-eco-green" />
-              Evaluaciones Recientes
+              Historial de Evaluaciones
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {recentEvaluations.length === 0 ? (
+            {evaluations.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 No hay evaluaciones registradas. Comienza evaluando una zona.
               </p>
@@ -337,7 +401,7 @@ export function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentEvaluations.map((item) => (
+                    {evaluations.map((item) => (
                       <tr key={item.id} className="border-b border-border hover:bg-muted/50">
                         <td className="py-3 px-4">{item.zona}</td>
                         <td className="py-3 px-4">{item.ciudad_nombre}</td>
@@ -367,6 +431,34 @@ export function Dashboard() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {pagination.total > 0 && (
+              <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando pagina {currentPage} de {pagination.totalPages} ({pagination.total} registros)
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={currentPage >= pagination.totalPages}
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(page + 1, pagination.totalPages))
+                    }
+                  >
+                    Siguiente
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

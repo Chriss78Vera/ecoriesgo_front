@@ -81,9 +81,11 @@ export function Evaluar() {
   const [locationLocked, setLocationLocked] = useState(false);
   const [formData, setFormData] = useState(DEFAULT_FORM);
 
+  const ciudadesUnicas = useMemo(() => getUniqueCitiesByName(ciudades), [ciudades]);
+
   const selectedCiudad = useMemo(
-    () => ciudades.find((ciudad) => String(ciudad.id) === formData.ciudadId),
-    [ciudades, formData.ciudadId]
+    () => ciudadesUnicas.find((ciudad) => String(ciudad.id) === formData.ciudadId),
+    [ciudadesUnicas, formData.ciudadId]
   );
 
   useEffect(() => {
@@ -126,7 +128,7 @@ export function Evaluar() {
         setCiudades(data);
         setFormData((current) => ({
           ...current,
-          ciudadId: data.some((ciudad) => String(ciudad.id) === current.ciudadId)
+          ciudadId: getUniqueCitiesByName(data).some((ciudad) => String(ciudad.id) === current.ciudadId)
             ? current.ciudadId
             : "",
         }));
@@ -298,7 +300,7 @@ export function Evaluar() {
                   placeholder="Selecciona una ciudad"
                   emptyMessage="No se encontraron ciudades."
                   onChange={(value) => {
-                    const selected = ciudades.find((ciudad) => String(ciudad.id) === value);
+                    const selected = ciudadesUnicas.find((ciudad) => String(ciudad.id) === value);
 
                     setFormData({
                       ...formData,
@@ -307,7 +309,7 @@ export function Evaluar() {
                       longitud: selected?.longitud ?? "",
                     });
                   }}
-                  options={ciudades.map((ciudad) => ({
+                  options={ciudadesUnicas.map((ciudad) => ({
                     value: String(ciudad.id),
                     label: ciudad.nombre,
                   }))}
@@ -540,6 +542,28 @@ function normalizeCatalogCities(catalogo: CatalogoUbicacion[]): NormalizedCatalo
       },
     ];
   });
+}
+
+function getUniqueCitiesByName(cities: Ciudad[]) {
+  const citiesMap = new Map<string, Ciudad>();
+
+  cities.forEach((city) => {
+    const key = normalizeCityName(city.nombre);
+
+    if (!citiesMap.has(key)) {
+      citiesMap.set(key, city);
+    }
+  });
+
+  return Array.from(citiesMap.values());
+}
+
+function normalizeCityName(name: string) {
+  return name
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function getDistanceKm(
