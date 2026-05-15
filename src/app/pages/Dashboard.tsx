@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   TrendingUp,
   Calendar,
+  Check,
+  ChevronsUpDown,
   Filter,
   LocateFixed,
   Lightbulb,
@@ -37,6 +39,20 @@ import {
   type EvaluacionListItem,
   type Provincia,
 } from "../services/evaluacion";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import { cn } from "../components/ui/utils";
 
 const EMPTY_DASHBOARD: DashboardResumen = {
   total_zonas: 0,
@@ -381,8 +397,8 @@ export function Dashboard() {
                 <Filter className="size-4 text-eco-green" />
                 Filtros del historial
               </div>
-              <div className="grid gap-4 md:grid-cols-[1fr_1fr_160px_auto] md:items-end">
-                <FilterSelect
+              <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_minmax(0,280px)_140px_auto] md:items-end md:justify-start">
+                <SearchableFilterSelect
                   label="Provincia"
                   value={selectedProvinciaId}
                   onChange={(value) => {
@@ -397,8 +413,10 @@ export function Dashboard() {
                     label: provincia.nombre,
                   }))}
                   placeholder="Todas las provincias"
+                  searchPlaceholder="Buscar provincia..."
+                  emptyMessage="No se encontraron provincias."
                 />
-                <FilterSelect
+                <SearchableFilterSelect
                   label="Ciudad"
                   value={selectedCiudadId}
                   onChange={(value) => {
@@ -412,6 +430,8 @@ export function Dashboard() {
                     label: ciudad.nombre,
                   }))}
                   placeholder="Todas las ciudades"
+                  searchPlaceholder="Buscar ciudad..."
+                  emptyMessage="No se encontraron ciudades."
                   disabled={!selectedProvinciaId}
                 />
                 <FilterSelect
@@ -572,6 +592,93 @@ function FilterSelect({
         ))}
       </select>
     </label>
+  );
+}
+
+function SearchableFilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  searchPlaceholder,
+  emptyMessage,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyMessage: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <div className="grid gap-2 text-sm font-medium">
+      <span>{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 text-left text-sm font-normal text-foreground shadow-sm outline-none transition hover:border-eco-green/50 focus:border-eco-green focus:ring-2 focus:ring-eco-green/20 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+          >
+            <span className={cn("min-w-0 truncate", !selectedOption && "text-muted-foreground")}>
+              {selectedOption?.label ?? placeholder}
+            </span>
+            <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+          <Command>
+            <CommandInput placeholder={searchPlaceholder} />
+            <CommandList className="max-h-48">
+              <CommandEmpty>{emptyMessage}</CommandEmpty>
+              <CommandGroup>
+                <CommandItem
+                  value={placeholder}
+                  keywords={["todos", "todas", "limpiar"]}
+                  onSelect={() => {
+                    onChange("");
+                    setOpen(false);
+                  }}
+                  className="min-h-9"
+                >
+                  <Check className={cn("size-4", value === "" ? "opacity-100" : "opacity-0")} />
+                  <span className="truncate">{placeholder}</span>
+                </CommandItem>
+                {options.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label}
+                    keywords={[option.value]}
+                    onSelect={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className="min-h-9"
+                  >
+                    <Check
+                      className={cn(
+                        "size-4",
+                        value === option.value ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span className="truncate">{option.label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 
